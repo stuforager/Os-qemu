@@ -33,6 +33,13 @@ int kern_init(void) {
 
     intr_enable();  // enable irq interrupt
     
+    //添加断点指令
+    __asm__ volatile ("ebreak");
+
+    // 添加非法指令
+    __asm__ volatile (".word 0xFFFFFFFF");  // 使用无效的指令码
+
+
     while (1)
         ;
 }
