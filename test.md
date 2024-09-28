@@ -42,6 +42,7 @@ si
 la sp, bootstacktop 指令设置了堆栈指针，以便内核可以使用一个预先分配的堆栈。tail kern_init 指令则是跳转到内核初始化函数，开始执行内核的初始化过程。这是操作系统启动流程中的典型步骤，确保内核有一个可用的堆栈，并且开始执行初始化代码。
 ## 练习2：完善中断处理
 操作系统每遇到100次时钟中断后，调用print_ticks子程序，向屏幕上打印一行文字”100 ticks”，在打印完10行后调用sbi.h中的shut_down()函数关机
+
 ![alt text](bc2d3b8fa6556580d98804e1fcd4381.png)
 
 运行结果如下
@@ -96,10 +97,13 @@ sstatus和sepc的恢复：sstatus和sepc寄存器在RESTORE_ALL宏中被恢复�
 
 ## 扩展练习 Challenge3：完善异常中断
 在 kern/trap/trap.c的异常处理函数中捕获，并对其进行处理，简单输出异常类型和异常指令触发地址，即“Illegal instruction caught at 0x(地址)
+
 ![alt text](84b79dce379755bb57537d5b75471e9.png)
 
 “ebreak caught at 0x（地址）
+
 ![alt text](a2057ee0ef9f1dd0d3378a7c8b185c4.png)
 
 运行结果
+
 ![alt text](3695714bae6e01d20728832e30ff5f9.png)
