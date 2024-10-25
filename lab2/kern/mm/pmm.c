@@ -1,4 +1,5 @@
 #include <default_pmm.h>
+#include <buddy_pmm.h>
 #include <best_fit_pmm.h>
 #include <defs.h>
 #include <error.h>
@@ -49,6 +50,7 @@ static void init_memmap(struct Page *base, size_t n) {
 struct Page *alloc_pages(size_t n) {
     struct Page *page = NULL;
     bool intr_flag;
+
     local_intr_save(intr_flag);
     {
         page = pmm_manager->alloc_pages(n);
