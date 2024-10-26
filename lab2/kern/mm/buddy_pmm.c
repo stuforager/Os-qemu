@@ -87,7 +87,6 @@ Page* buddy_alloc_pages(size_t n) {
     struct Page* new_page = &useable_page_base[index * size - useable_page_num];
     for (struct Page* p = new_page; p != new_page + size; p++){
         ClearPageProperty(p);
-        //set_page_ref(p, 0);
     }
     // 更新上方节点
     index = PARENT(index);
