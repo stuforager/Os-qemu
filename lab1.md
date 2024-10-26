@@ -45,10 +45,11 @@
 ## 练习 2：完善中断处理 （需要编程）
 在`trap.c`添加代码部分：
 
-![alt text](image-7.png)
+![alt text](image.png)
+
 执行结果如下：
 
-![alt text](image-6.png)
+![alt text](image-1.png)
 
 ### 扩展练习 Challenge 1：描述与理解中断流程
 
@@ -80,12 +81,13 @@
 ### 扩展练习 Challenge 3：完善异常中断
 在`trap.c`的代码如下：
 
-![alt text](image-5.png)
+![alt text](image-2.png)
 
 
 在`init.c`加入下面这些测试语句：
-![alt text](image-4.png)
+
+![alt text](image-3.png)
 
 执行`make qemu`结果如下：
 
-![alt text](image-2.png)
+![alt text](image-4.png)
