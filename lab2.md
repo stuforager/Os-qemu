@@ -25,6 +25,36 @@
 ### `default_free_pages` 函数
 用于释放先前分配的页面，并将这些页面重新加入空闲列表。它接受两个参数：`base`（要释放页面的起始地址）和 `n`（要释放的页面数量）。在函数内部，会遍历要释放的页面，重置每个页面的标志和属性，以确保它们可以再次使用。对于释放的页面，`base` 页的 `property` 属性会被设置为 `n`，以表示该块的空闲页面数量已更新。然后，函数将这些释放的页面插入到 `free_list` 中，并检查相邻的空闲块是否可以合并。如果相邻的空闲块可以合并，函数将进行合并并更新其属性。
 
+# LAB2：练习2
+
+## 实验目的
+
+实现 Best-Fit 连续物理内存分配算法，并理解其工作原理和优化空间。
+
+## 实验步骤
+
+1. **理解Best-Fit算法**：Best-Fit算法是一种内存分配策略，它会选择一个大小能够满足请求且最小的空闲内存块进行分配。这样可以减少内存碎片，提高内存利用率。
+
+2. **修改内存管理器**：在`kern/mm/best_fit_pmm.c`中，修改内存管理器的相关函数，以实现Best-Fit算法。
+
+3. **初始化内存管理器**：在`best_fit_init`函数中，初始化空闲内存列表和空闲内存计数器。
+
+4. **初始化内存映射**：在`best_fit_init_memmap`函数中，初始化每个内存页，并将其添加到空闲内存列表中。
+
+5. **分配内存**：在`best_fit_alloc_pages`函数中，实现Best-Fit算法的分配逻辑，找到最小的能满足请求的空闲内存块，并进行分配。
+
+6. **释放内存**：在`best_fit_free_pages`函数中，实现内存释放逻辑，并将释放的内存块添加回空闲内存列表。
+
+7. **测试**：编写测试用例，验证Best-Fit算法的正确性。
+
+## 实验结果
+
+通过编写和运行测试用例，验证了Best-Fit算法的正确性。测试结果显示，算法能够正确地分配和释放内存，并且能够找到最小的能满足请求的空闲内存块。
+
+## 实验分析
+### Best-Fit算法与First-Fit算法区别
+
+Best-Fit算法与First-Fit算法的主要区别在于，Best-Fit算法会选择最小的能满足请求的空闲内存块，而First-Fit算法会选择第一个能满足请求的空闲内存块。所以Best-Fit算法更加好。
 # Lab2：Challenge1
 ## 伙伴系统设计文档
 ### 伙伴系统概述
@@ -128,3 +158,167 @@
 
 4. **合并和复用检查**  
   在回收页面后，系统是否能够有效地合并相邻的空闲块，以最大化内存利用率，减少内存碎片，并确保后续分配中能够有效复用这些合并后的空闲块。
+
+# LAB2:Challenge2 
+
+这一实验旨在基于伙伴系统实现slub分配器，进一步优化内存分配的效率和管理。slub分配器通过对固定大小对象进行分组和缓存，以减少内存碎片，并提高频繁分配和释放对象的效率。
+
+## 1.算法理解
+slub 是基于 slab 分配器改进的内存分配器，与经典的伙伴系统不同，slub 针对频繁小对象分配需求进行了优化。一篇CSDN上用仓库和商户的角色分配的示例，将slub算法的原理讲得深入浅出：
+
+仓库（Buddy 分配器）：负责管理内存的大块资源。它提供“货物”（内存页）给“商户”，并且只处理大块的存储分配。每当商户需要一批新的小物品时，仓库就提供一整块货物（通常是一个 4KB 的页面）给商户。
+
+商户（SLUB 分配器）：负责将仓库中的大块资源进一步拆分成更小的对象，并精细化地分配给顾客（用户程序）。商户根据顾客的需求大小，设立了多个特定尺寸的货架，以便顾客可以快速获取所需物品。
+
+同时，商户为每种尺寸的物品设立了货架（kmem_cache），每个缓存池专门存放某种大小的对象，比如 8 字节、16 字节等。货架上商品的组织就是slab：每个货架包含多个商品架（slab），每个商品架在商户的管理下由一个完整的页面（4KB）组成。商户从仓库获取整页的货物，然后将其填充在不同的货架上。
+
+顾客需求的分配： 当顾客需要一个小对象时，商户会在对应的货架上找到合适的商品架。如果当前架子上有未使用的空间（空闲对象），则分配给顾客；如果当前架子已满，则商户会从货架上的空闲链表或部分使用的链表中找到合适的架子，并为顾客提供对象。如果货架已无空闲的商品架，商户会向仓库申请新的货物并添加到货架上。
+
+商品回收：就是前面过程的反步骤，当下一级全部释放后，往上一级进行归回，将内存返回。
+
+## 2. 代码实现
+代码的实现基于 `buddy_pmm` 文件中的伙伴算法，扩展了slub分配器的内存管理功能，并提供了一组接口来分配和释放对象。
+
+### 2.1 引入依赖头文件
+在代码的开头，引入了必要的头文件，主要是将同伴写的伙伴算法纳入了进来：
+```c
+#include <pmm.h>
+#include <list.h>
+#include <string.h>
+#include <buddy_pmm.h>
+#include <stdio.h>
+#include <defs.h>
+```
+pmm.h：包含物理内存管理器的基础定义和接口。
+
+list.h：提供双向链表结构和操作函数，用于实现 slab 链表。
+
+string.h、stdio.h 和 defs.h：提供字符串处理、输入输出和常量定义。
+
+buddy_pmm.h：伙伴分配器的头文件，提供页级分配的基础功能。
+
+### 2.2 定义 SLUB 分配器结构体
+SLUB 分配器的两个主要结构体是 `kmem_cache` 和 `slab`：
+
+```c
+struct kmem_cache {
+    size_t object_size;
+    struct list_head slabs_full;
+    struct list_head slabs_partial;
+    struct list_head slabs_free;
+};
+
+struct slab {
+    struct list_head list;
+    unsigned int free_count;
+    unsigned int in_use;
+    void *free_list;
+};
+```
+
+`kmem_cache`：定义对象缓存管理器，也就是算法理解中的“仓库”。其中的具体变量含义为：
+
+①`object_size`：指定每个对象的大小，
+
+②`slabs_full`：存储已满的slab的链表
+
+③`slabs_partial`：存储部分使用的slab的链表
+
+④`slabs_free`：存储空闲的slab的链表。
+
+slab：表示单个slab，即运营商，需要对内存需求进行返回的算法部分，其中包含空闲对象的链表`free_list`，当前的空闲对象数 `free_count`，以及已分配对象数`in_use`。
+
+
+### 2.3 初始化 SLUB 分配器
+```c
+static void slub_init(void) {
+    for (int i = 0; i < SLUB_MAX_ORDER; i++) {
+        struct kmem_cache *cache = &slub_caches[i];
+        cache->object_size = 1 << (i + 3);
+        list_init(&cache->slabs_full);
+        list_init(&cache->slabs_partial);
+        list_init(&cache->slabs_free);
+    }
+}
+```
+此函数初始化`slub_caches`，每个`kmem_cache`表示一个特定大小的对象缓存池。`object_size`依次设置为 8、16、32 字节等，巧妙地采用了位运算，从2的3次方开始不断×2，直至4096（2的11次方）。
+
+### 2.4 初始化内存映射
+```c
+static void slub_init_memmap(struct Page *base, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        ClearPageProperty(&base[i]);
+        SetPageReserved(&base[i]);
+    }
+}
+```
+该函数标记slub管理器所用页面为已分配。`ClearPageProperty`清除页面属性，`SetPageReserved`将页面标记为已保留，以防止伙伴系统重复分配这些页面。
+
+尽管`slub_init_memmap`并未直接将页面打碎，但slub分配器通过自身的`kmem_cache`和`slab`结构，在逻辑上将单个页面分为多个小对象。
+
+### 2.5 对象分配函数
+```c
+void *slub_alloc(struct kmem_cache *cache) {
+    struct slab *slab = NULL;
+
+    if (!list_empty(&cache->slabs_partial)) {
+        slab = list_entry(cache->slabs_partial.next, struct slab, list);
+    } else if (!list_empty(&cache->slabs_free)) {
+        slab = list_entry(cache->slabs_free.next, struct slab, list);
+        list_del(&slab->list);
+        list_add(&cache->slabs_partial, &slab->list);
+    } else {
+        struct Page *page = buddy_alloc_pages(1);
+        slab = (struct slab *)KADDR(page2pa(page));
+        memset(slab, 0, MAX_SLAB_SIZE);
+        list_add(&cache->slabs_partial, &slab->list);
+    }
+
+    void *object = slab->free_list;
+    slab->free_list = *(void **)slab->free_list;
+    slab->in_use++;
+    if (slab->in_use == cache->object_size) {
+        list_del(&slab->list);
+        list_add(&cache->slabs_full, &slab->list);
+    }
+    return object;
+}
+```
+首先查找`slabs_partial`中的`slab`，若没有部分使用的 slab，则尝试从`slabs_free`获取。如果都为空闲，分配一个新页，并初始化为一个新的`slab`。
+
+接着进行对象分配：将`slab->free_list`中的对象地址返回并更新 `free_list`指向下一个对象。
+
+### 2.6 对象释放函数
+```c
+void slub_free(struct kmem_cache *cache, void *object) {
+    struct slab *slab = get_slab_from_object(object);
+    *(void **)object = slab->free_list;
+    slab->free_list = object;
+    slab->in_use--;
+
+    if (slab->in_use == 0) {
+        list_del(&slab->list);
+        list_add(&cache->slabs_free, &slab->list);
+    } else if (slab->in_use == cache->object_size - 1) {
+        list_del(&slab->list);
+        list_add(&cache->slabs_partial, &slab->list);
+    }
+}
+```
+此函数释放指定对象并将其重新链接回`slab->free_list`。当 `in_use`计数为 0 时，将该`slab`移动到`slabs_free`；若从满状态释放至部分使用，则移回`slabs_partial`。
+
+### 2.7 测试函数与管理器导出
+与前面逻辑相同，不再赘述。
+
+
+# Lab2: Challenge3
+
+## 硬件的可用物理内存范围的获取方法
+
+如果操作系统无法提前知道当前硬件的可用物理内存范围，可以通过以下方法获取：
+
+1. **BIOS调用**：在系统启动时，通过BIOS中断调用获取内存大小信息。
+2. **E820规范**：在BIOS调用的基础上，E820规范提供了一种更详细的内存映射方法，可以获取到更精确的内存范围信息。
+3. **ACPI**：现代计算机使用ACPI规范，其中包含了内存映射信息，可以通过ACPI表获取内存范围。
+
+通过这些方法，操作系统可以在启动时获取到硬件的可用物理内存范围，并据此进行内存管理。
