@@ -59,8 +59,9 @@ _clock_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, in
     // link the most recent arrival page at the back of the pra_list_head qeueue.
     // 将页面page插入到页面链表pra_list_head的末尾
     // 将页面的visited标志置为1，表示该页面已被访问
-    list_add_before(curr_ptr, entry);
+    list_add_before(&pra_list_head, entry);
     page->visited = 1;
+    cprintf("curr_ptr %p\n", curr_ptr); 
     return 0;
 }
 /*
@@ -83,20 +84,22 @@ _clock_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tic
         // 获取当前页面对应的Page结构指针
         // 如果当前页面未被访问，则将该页面从页面链表中删除，并将该页面指针赋值给ptr_page作为换出页面
         // 如果当前页面已被访问，则将visited标志置为0，表示该页面已被重新访问
+        
         // 取出链表头，即最早进入的物理页面
-        list_entry_t *entry = list_next(head);
-        while (entry != head) {
-            struct Page *page = le2page(entry, pra_page_link);
+        curr_ptr = list_next(head);
+        while (curr_ptr != head) {
+            struct Page *page = le2page(curr_ptr, pra_page_link);
+            cprintf("curr_ptr %p\n", curr_ptr); 
             // 获取当前页面对应的Page结构指针
             if (page->visited == 0) {
                 // 如果当前页面未被访问，则将该页面从页面链表中删除，并将该页面指针赋值给ptr_page作为换出页面
-                list_del(entry);
+                list_del(curr_ptr);
                 *ptr_page = page;
                 return 0;
             }
             // 如果当前页面已被访问，则将visited标志置为0，表示该页面已被重新访问
             page->visited = 0;
-            entry = list_next(entry);
+            curr_ptr = list_next(curr_ptr);
         }
         // 如果所有页面都被访问过，重新开始遍历
     }
