@@ -6,6 +6,7 @@
 #include <swap_clock.h>
 #include <list.h>
 
+
 /* [wikipedia]The simplest Page Replacement Algorithm(PRA) is a FIFO algorithm. The first-in, first-out
  * page replacement algorithm is a low-overhead algorithm that requires little book-keeping on
  * the part of the operating system. The idea is obvious from the name - the operating system
@@ -38,6 +39,7 @@ _clock_init_mm(struct mm_struct *mm)
      // 初始化当前指针curr_ptr指向pra_list_head，表示当前页面替换位置为链表头
      // 将mm的私有成员指针指向pra_list_head，用于后续的页面替换算法操作
      //cprintf(" mm->sm_priv %x in fifo_init_mm\n",mm->sm_priv);
+
      return 0;
 }
 /*
@@ -54,6 +56,10 @@ _clock_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, in
     // link the most recent arrival page at the back of the pra_list_head qeueue.
     // 将页面page插入到页面链表pra_list_head的末尾
     // 将页面的visited标志置为1，表示该页面已被访问
+    list_entry_t *head=(list_entry_t*) mm->sm_priv;
+    list_add_before(head,entry);
+    // 将页面的visited标志置为1，表示该页面已被访问
+    
     return 0;
 }
 /*
