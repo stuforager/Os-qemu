@@ -181,13 +181,16 @@ proc_run(struct proc_struct *proc) {
         *   local_intr_restore():     Enable Interrupts
         *   lcr3():                   Modify the value of CR3 register
         *   switch_to():              Context switching between two processes
-        */
-        unsigned long intr_flag;  // 保存中断状态
-        local_intr_save(intr_flag);  // 禁用中断
-        current = proc;  // 更新当前进程为要切换的目标进程
-        lcr3(proc->cr3);  // 切换到目标进程的页表 (CR3寄存器)
-        switch_to(&current->context, &proc->context);  // 执行上下文切换
-        local_intr_restore(intr_flag);  // 恢复中断状态
+        */        
+       //禁用中断，保存中断状态
+        bool intr_flag;
+        local_intr_save(intr_flag);
+        //保存当前进程的上下文，并切换到新进程
+        struct proc_struct * temp = current;//将当前进程保存到临时变量 temp，以便之后恢复其上下文
+        current = proc;//切换到新进程
+        lcr3(current->cr3);
+        switch_to(&(temp->context),&(proc->context));
+        local_intr_restore(intr_flag);
     }
 }
 
