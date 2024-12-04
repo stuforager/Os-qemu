@@ -173,7 +173,7 @@ get_pid(void) {
 void
 proc_run(struct proc_struct *proc) {
     if (proc != current) {
-        // LAB4:EXERCISE3 YOUR CODE
+        // LAB4:EXERCISE3 2212565
         /*
         * Some Useful MACROs, Functions and DEFINEs, you can use them in below implementation.
         * MACROs or Functions:
@@ -184,10 +184,10 @@ proc_run(struct proc_struct *proc) {
         */
         unsigned long intr_flag;  // 保存中断状态
         local_intr_save(intr_flag);  // 禁用中断
-        local_intr_restore(intr_flag);  // 恢复中断状态
         current = proc;  // 更新当前进程为要切换的目标进程
         lcr3(proc->cr3);  // 切换到目标进程的页表 (CR3寄存器)
         switch_to(&current->context, &proc->context);  // 执行上下文切换
+        local_intr_restore(intr_flag);  // 恢复中断状态
     }
 }
 
@@ -288,7 +288,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         goto fork_out;
     }
     ret = -E_NO_MEM;
-    //LAB4:EXERCISE2 YOUR CODE
+    //LAB4:EXERCISE2 2213411
     /*
      * Some Useful MACROs, Functions and DEFINEs, you can use them in below implementation.
      * MACROs or Functions:
