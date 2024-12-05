@@ -72,6 +72,56 @@ uCore确实为每个新fork的线程分配了一个唯一的ID。以下是分析
  **哈希表和进程列表**：uCore使用哈希表和进程列表来管理所有进程。哈希表基于PID进行索引，这使得通过PID查找进程变得非常快速。由于每个进程都有一个唯一的PID，因此哈希表中不会有冲突。
 
  **进程状态管理**：uCore中的进程状态管理也依赖于每个进程有一个唯一的PID。例如，当一个进程退出时，它的状态会被设置为`PROC_ZOMBIE`，父进程需要通过PID来回收资源。
+ ## 练习3
+
+### 实验要求
+根据提示完成`proc_run`函数的编写部分。
+
+### 实验过程
+`proc_run`函数用于切换进程。调用时判断如果当前进程不是即将前往的进程，就执行切换过程。特别需要注意的就是在切换过程中，我们要确保进程不受到正在运行程序的干扰，所以要对中断状态进行管理，所幸实验已经封装好了local_intr_save与local_intr_restore函数。所以我们先用下面的框架对进程进行保存：
+
+```
+c
+    unsigned long intr_flag;
+    local_intr_save(intr_flag);
+    // 在这里切换进程
+    local_intr_restore(intr_flag);
+```
+
+切换进程过程中，框架为我们准备好了switch_to函数，它能够将前一个进程的数据保存到中断帧中，这样进程切换回来时信息就得到了保存。只是需要特别注意的是，这个函数的传参是引用类型，所以为了保护current，我们引入了temp来予以保存。按照这一思路实现的代码就是：
+
+```
+c
+    struct proc_struct * temp = current;
+    current = proc;
+    lcr3(current->cr3);
+    switch_to(&(temp->context),&(proc->context));
+```
+
+综合起来，整个函数为：
+
+```
+c
+void
+proc_run(struct proc_struct *proc) {
+    if (proc != current) {
+        unsigned long intr_flag;  // 保存中断状态
+        bool intr_flag;
+        local_intr_save(intr_flag);
+        //保存当前进程的上下文，并切换到新进程
+        struct proc_struct * temp = current;//将当前进程保存到临时变量 temp，以便之后恢复其上下文
+        current = proc;
+        lcr3(current->cr3);
+        switch_to(&(temp->context),&(proc->context));
+        local_intr_restore(intr_flag);
+    }
+}
+```   
+
+### 问题回答
+本次实验总共创建了两个线程，暂且将其标记为0号与1号进程，0号进程实际上是“如运行”，由于其need_resched参数被置为了1,所以一运行就匆忙地切换到了1号进程。
+
+
 
 ## 扩展练习challenge
 
