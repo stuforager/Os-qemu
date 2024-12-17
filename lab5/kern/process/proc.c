@@ -481,6 +481,26 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
 //     // 7. 返回子进程的PID作为函数返回值
 //     ret = proc->pid;
 
+
+
+//     //LAB5 YOUR CODE : (update LAB4 steps)
+//     //TIPS: you should modify your written code in lab4(step1 and step5), not add more code.
+//    /* Some Functions
+//     *    set_links:  set the relation links of process.  ALSO SEE: remove_links:  lean the relation links of process 
+//     *    -------------------
+//     *    update step 1: set child proc's parent to current process, make sure current process's wait_state is 0
+//     *    update step 5: insert proc_struct into hash_list && proc_list, set the relation links of process
+//     */
+
+//         proc->cptr = proc->parent = current; // 设置子进程的父进程为当前进程
+//         proc->yptr = proc->optr = NULL; // 初始化兄弟进程为NULL
+//         if (proc->parent->cptr == NULL) {
+//             proc->parent->cptr = proc; // 如果父进程没有子进程，设置子进程
+//         } else {
+//             proc->optr = proc->parent->cptr; // 如果父进程有子进程，设置子进程的兄弟进程
+//             proc->parent->cptr->yptr = proc;
+//         }
+
 //1. 调用alloc_proc来分配一个proc_struct
 if ((proc = alloc_proc()) == NULL)
     goto fork_out;
