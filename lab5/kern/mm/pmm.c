@@ -388,8 +388,17 @@ int copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end,
              * (3) memory copy from src_kvaddr to dst_kvaddr, size is PGSIZE
              * (4) build the map of phy addr of  nage with the linear addr start
              */
-
-
+            if (share) {
+                page_insert(from,page,start,perm&(~PTE_W));
+                ret = page_insert(to,page,start,perm&(~PTE_W));
+            } else {
+                struct Page *npage=alloc_page();
+                assert(npage!=NULL);
+                uintptr_t src_kvaddr = page2kva(page);
+                uintptr_t dst_kvaddr = page2kva(npage);
+                memcpy((void *)dst_kvaddr, (const void *)src_kvaddr, PGSIZE); // (3) memory copy
+                ret = page_insert(to, npage, start, perm); // (4) build the map
+            }
             assert(ret == 0);
         }
         start += PGSIZE;
@@ -625,4 +634,3 @@ static int get_pgtable_items(size_t left, size_t right, size_t start,
     }
     return 0;
 }
-

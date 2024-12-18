@@ -182,7 +182,12 @@ proc_run(struct proc_struct *proc) {
         *   lcr3():                   Modify the value of CR3 register
         *   switch_to():              Context switching between two processes
         */
-       
+        unsigned long intr_flag;  // 保存中断状态
+        local_intr_save(intr_flag);  // 禁用中断
+        current = proc;  // 更新当前进程为要切换的目标进程
+        lcr3(proc->cr3);  // 切换到目标进程的页表 (CR3寄存器)
+        switch_to(&current->context, &proc->context);  // 执行上下文切换
+         local_intr_restore(intr_flag);  // 恢复中断状态
     }
 }
 
@@ -308,7 +313,40 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     //    5. insert proc_struct into hash_list && proc_list
     //    6. call wakeup_proc to make the new child process RUNNABLE
     //    7. set ret vaule using child proc's pid
+    // 1. 调用alloc_proc分配一个proc_struct
+    proc = alloc_proc();
+    if (proc == NULL) {
+        goto fork_out; // 如果分配失败，直接跳转到fork_out处理返回
+    }
 
+    // 2. 调用setup_kstack为子进程分配内核栈
+    if (setup_kstack(proc) != 0) {
+        goto bad_fork_cleanup_proc; // 如果内核栈分配失败，清理proc并返回错误
+    }
+
+    // 3. 根据clone_flags决定是复制还是共享内存管理信息
+    if (!(clone_flags & CLONE_VM)) {
+        if (copy_mm(clone_flags, proc) != 0) {
+            goto bad_fork_cleanup_kstack; // 如果内存管理信息复制失败，清理内核栈和proc
+        }
+    }
+
+    // 4. 调用copy_thread设置子进程的trapframe和上下文
+    copy_thread(proc, stack, tf);
+
+    // 5. 为新进程分配一个唯一的PID，并将其加入到哈希表和进程列表中
+    proc->pid = get_pid();
+    if (proc->pid <= 0) {
+        goto bad_fork_cleanup_kstack; // 如果PID分配失败，清理内核栈和proc
+    }
+    hash_proc(proc); // 将进程加入哈希表
+    list_add(&proc_list, &(proc->list_link)); // 将进程加入进程列表
+
+    // 6. 调用wakeup_proc使新子进程变为可运行状态
+    wakeup_proc(proc);
+
+    // 7. 返回子进程的PID作为函数返回值
+    ret = proc->pid;
     
 
 fork_out:
